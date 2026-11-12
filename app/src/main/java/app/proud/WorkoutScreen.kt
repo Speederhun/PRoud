@@ -71,6 +71,7 @@ fun WorkoutScreen(
     var showFinish by remember { mutableStateOf(false) }
     var showDiscard by remember { mutableStateOf(false) }
     var showPicker by remember { mutableStateOf(false) }
+    var swapIdx by remember { mutableStateOf<Int?>(null) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var restEnd by remember { mutableLongStateOf(0L) }
     val ctx = LocalContext.current
@@ -157,6 +158,7 @@ fun WorkoutScreen(
                         exIdx = exIdx,
                         ex = ex,
                         onInfo = onInfo,
+                        onSwap = { swapIdx = exIdx },
                         onSetDone = { isLastSet ->
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             if (!(isLastExercise && isLastSet)) {
@@ -173,6 +175,18 @@ fun WorkoutScreen(
                     Spacer(Modifier.height(24.dp))
                 }
             }
+        }
+
+        val swapAt = swapIdx
+        if (swapAt != null && swapAt < active.exercises.size) {
+            SwapDialog(
+                exerciseId = active.exercises[swapAt].exerciseId,
+                onPick = {
+                    store.replaceExercise(swapAt, it.id)
+                    swapIdx = null
+                },
+                onDismiss = { swapIdx = null }
+            )
         }
 
         if (showPicker) {
@@ -283,6 +297,7 @@ private fun ExerciseBlock(
     exIdx: Int,
     ex: ActiveExercise,
     onInfo: (String) -> Unit,
+    onSwap: () -> Unit,
     onSetDone: (isLastSet: Boolean) -> Unit
 ) {
     val info = ExerciseRepo.get(ex.exerciseId)
@@ -311,6 +326,15 @@ private fun ExerciseBlock(
                     color = Muted,
                     fontSize = 11.sp,
                     maxLines = 2
+                )
+            }
+            if (ex.sets.none { it.done }) {
+                Text(
+                    "🔄",
+                    fontSize = 18.sp,
+                    modifier = Modifier
+                        .clickable(onClick = onSwap)
+                        .padding(8.dp)
                 )
             }
             Text(

@@ -112,7 +112,7 @@ fun ExerciseBrowser(modifier: Modifier = Modifier, onPick: (Exercise) -> Unit) {
 }
 
 @Composable
-private fun ExerciseRow(ex: Exercise, onClick: () -> Unit) {
+fun ExerciseRow(ex: Exercise, onClick: () -> Unit) {
     AppCard(Modifier.fillMaxWidth(), onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ExerciseThumb(ex, 56)
@@ -298,6 +298,90 @@ fun ExerciseDetailDialog(data: AppData, id: String, onDismiss: () -> Unit) {
                         }
                     }
                     Spacer(Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SwapDialog(exerciseId: String, onPick: (Exercise) -> Unit, onDismiss: () -> Unit) {
+    val orig = ExerciseRepo.get(exerciseId)
+    var equip by remember { mutableStateOf("") }
+    val candidates = remember(exerciseId) {
+        if (orig == null) {
+            emptyList()
+        } else {
+            ExerciseRepo.all
+                .filter { c -> c.id != orig.id && c.primary.any { m -> m in orig.primary } }
+                .sortedWith(
+                    compareBy<Exercise>(
+                        { it.mechanic != orig.mechanic },
+                        { it.primary.firstOrNull() != orig.primary.firstOrNull() },
+                        { it.huName }
+                    )
+                )
+        }
+    }
+    val shown = if (equip.isEmpty()) candidates else candidates.filter {
+        if (equip == "other") it.equipment !in Hu.mainEquipment else it.equipment == equip
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(Modifier.fillMaxSize(), color = Bg) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Gyakorlat cseréje", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextMain)
+                        Text("Nincs meg: ${orig?.huName ?: exerciseId}", color = Muted, fontSize = 12.sp)
+                    }
+                    Text(
+                        "✕",
+                        color = Muted,
+                        fontSize = 22.sp,
+                        modifier = Modifier
+                            .clickable(onClick = onDismiss)
+                            .padding(8.dp)
+                    )
+                }
+                Text(
+                    "Ugyanazt az izomcsoportot dolgozó gyakorlatok. Szűrj arra az eszközre, ami van a termedben.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item { Chip("Minden eszköz", equip.isEmpty()) { equip = "" } }
+                    items(Hu.mainEquipment) { e ->
+                        Chip(Hu.equipment(e), equip == e) { equip = if (equip == e) "" else e }
+                    }
+                    item { Chip("Egyéb", equip == "other") { equip = if (equip == "other") "" else "other" } }
+                }
+                Text(
+                    "${shown.size} lehetőség",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                LazyColumn(
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(shown, key = { it.id }) { ex ->
+                        ExerciseRow(ex) { onPick(ex) }
+                    }
                 }
             }
         }

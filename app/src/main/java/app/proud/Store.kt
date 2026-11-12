@@ -145,6 +145,21 @@ class Store(private val file: File) {
         a.copy(exercises = a.exercises + ActiveExercise(exerciseId, sets))
     }
 
+    /** Kicseréli a gyakorlatot (pl. ha nincs ilyen gép a teremben); a szettek újrakezdődnek. */
+    fun replaceExercise(exIndex: Int, newId: String) = updateActive { a ->
+        val last = lastSets(newId)
+        a.copy(exercises = a.exercises.mapIndexed { i, e ->
+            if (i != exIndex) e
+            else {
+                val sets = e.sets.mapIndexed { si, old ->
+                    val prev = last.getOrNull(si) ?: last.lastOrNull()
+                    SetEntry(nextId(), prev?.weight ?: 0.0, old.reps, false)
+                }
+                ActiveExercise(newId, sets)
+            }
+        })
+    }
+
     fun removeExercise(exIndex: Int) = updateActive { a ->
         a.copy(exercises = a.exercises.filterIndexed { i, _ -> i != exIndex })
     }
