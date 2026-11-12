@@ -283,15 +283,24 @@ struct SummaryView: View {
 
 struct ConfettiView: View {
     @State private var go = false
-    private let items: [(String, CGFloat, Double, Double)] = (0..<28).map { i in
-        (["🎉", "⭐️", "✨", "🔥", "💪"][i % 5], CGFloat((i * 37) % 100) / 100, Double(i % 7) * 0.15, 2.0 + Double(i % 5) * 0.4)
-    }
+    private struct Piece { let emoji: String; let x: CGFloat; let delay: Double; let dur: Double }
+    private let items: [Piece] = {
+        let emojis: [String] = ["🎉", "⭐️", "✨", "🔥", "💪"]
+        var out: [Piece] = []
+        for i in 0..<28 {
+            let x: CGFloat = CGFloat((i * 37) % 100) / 100
+            let delay: Double = Double(i % 7) * 0.15
+            let dur: Double = 2.0 + Double(i % 5) * 0.4
+            out.append(Piece(emoji: emojis[i % 5], x: x, delay: delay, dur: dur))
+        }
+        return out
+    }()
     var body: some View {
         GeometryReader { g in
             ForEach(0..<items.count, id: \.self) { i in
-                Text(items[i].0).font(.title2)
-                    .position(x: g.size.width * items[i].1, y: go ? g.size.height + 40 : -40)
-                    .animation(.easeIn(duration: items[i].3).delay(items[i].2), value: go)
+                Text(items[i].emoji).font(.title2)
+                    .position(x: g.size.width * items[i].x, y: go ? g.size.height + 40 : -40)
+                    .animation(.easeIn(duration: items[i].dur).delay(items[i].delay), value: go)
             }
         }
         .onAppear { go = true }
