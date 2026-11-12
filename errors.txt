@@ -1,0 +1,3 @@
+** BUILD FAILED **
+/Users/runner/work/PRoud/PRoud/ios/PRoud/WorkoutView.swift:286:62: error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+sha: 858980feef3c8a11994079b2a8cf43fd4fbae3e9
