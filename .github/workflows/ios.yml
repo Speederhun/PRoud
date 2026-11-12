@@ -1,0 +1,58 @@
+name: iOS build
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project PRoud.xcodeproj -scheme PRoud -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee build.log
+      - name: Package IPA
+        working-directory: ios
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/PRoud.app Payload/
+          zip -qr PRoud.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PRoud-ipa
+          path: ios/PRoud.ipa
+      - name: Move tag
+        run: |
+          git tag -f ios-latest
+          git push -f origin ios-latest
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-latest
+          name: iOS latest
+          files: ios/PRoud.ipa
+      - name: Publish error log
+        if: failure()
+        run: |
+          grep -E "error:|\*\* BUILD FAILED" ios/build.log | sort -u | head -80 > /tmp/errors.txt || true
+          echo "sha: ${GITHUB_SHA}" >> /tmp/errors.txt
+          git config user.name Speederhun
+          git config user.email "66826254+Speederhun@users.noreply.github.com"
+          git checkout --orphan ios-build-log
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/errors.txt errors.txt
+          git add errors.txt
+          git commit -qm "iOS build errors"
+          git push -f origin ios-build-log

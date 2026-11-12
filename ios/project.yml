@@ -1,0 +1,25 @@
+name: PRoud
+options:
+  bundleIdPrefix: app.proud
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  PRoud:
+    type: application
+    platform: iOS
+    sources:
+      - PRoud
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.proud.PRoud
+        TARGET_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: PRoud
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
