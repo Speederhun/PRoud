@@ -26,9 +26,12 @@ struct RootView: View {
         TabView {
             HomeView().tabItem { Label("Edzés", systemImage: "dumbbell.fill") }
             CalendarView().tabItem { Label("Naptár", systemImage: "calendar") }
+            ProgressTabView().tabItem { Label("Haladás", systemImage: "chart.line.uptrend.xyaxis") }
             ProfileView().tabItem { Label("Profil", systemImage: "trophy.fill") }
             LibraryView().tabItem { Label("Gyakorlat", systemImage: "figure.strengthtraining.traditional") }
         }
+        .id(store.data.settings.theme)
+        .tint(Theme.accent)
         .fullScreenCover(isPresented: Binding(get: { store.data.active != nil }, set: { _ in })) {
             WorkoutView().environmentObject(store)
         }

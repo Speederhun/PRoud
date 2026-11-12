@@ -25,6 +25,16 @@ struct ProfileView: View {
                     }
                     Card {
                         VStack(alignment: .leading, spacing: 10) {
+                            Text("Stílus").font(.headline).foregroundColor(Theme.text)
+                            HStack {
+                                Button { store.setTheme("premium") } label: { ChipView(label: "🖤 Sötét & prémium", selected: store.data.settings.theme != "gamer") }
+                                Button { store.setTheme("gamer") } label: { ChipView(label: "🎮 Gamer", selected: store.data.settings.theme == "gamer") }
+                            }
+                        }
+                    }
+                    recordWall(st, li)
+                    Card {
+                        VStack(alignment: .leading, spacing: 10) {
                             Text("Beállítások").font(.headline).foregroundColor(Theme.text)
                             Stepper("Heti cél: \(store.data.settings.weeklyGoal) edzés",
                                     value: Binding(get: { store.data.settings.weeklyGoal }, set: { store.setWeeklyGoal($0) }), in: 1...7)
@@ -42,6 +52,34 @@ struct ProfileView: View {
             }
             .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Profil")
+        }
+    }
+
+    @MainActor
+    private func recordWall(_ st: Stats, _ li: LevelInfo) -> some View {
+        let rows = recordRows(store.data)
+        return Card {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("🏆 Rekordfal").font(.headline).foregroundColor(Theme.text)
+                if rows.isEmpty {
+                    Text("Az első nehezebb szettek után itt látod a legjobbjaidat.").font(.footnote).foregroundColor(Theme.muted)
+                }
+                ForEach(rows) { r in
+                    HStack {
+                        Text(ExerciseRepo.nameOf(r.exerciseId)).font(.subheadline).foregroundColor(Theme.text).lineLimit(1)
+                        Spacer()
+                        Text("\(fmtKg(r.weight)) kg × \(r.reps)").font(.subheadline.bold()).foregroundColor(Theme.accent)
+                    }
+                }
+                if !rows.isEmpty {
+                    let renderer = ImageRenderer(content: ShareCardView(rows: rows, level: li.level, title: li.title, xp: st.xp))
+                    if let ui = renderer.uiImage {
+                        ShareLink(item: Image(uiImage: ui), preview: SharePreview("PRoud rekordfal", image: Image(uiImage: ui))) {
+                            Label("Megosztás", systemImage: "square.and.arrow.up").font(.subheadline.bold()).foregroundColor(Theme.accent)
+                        }
+                    }
+                }
+            }
         }
     }
 

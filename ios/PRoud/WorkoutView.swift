@@ -35,6 +35,7 @@ struct WorkoutView: View {
     @State private var result: FinishResult? = nil
     @State private var confirmDiscard = false
     @State private var restLeft = 0
+    @State private var plateWeight: String? = nil
     @State private var now = Date()
     private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -80,6 +81,9 @@ struct WorkoutView: View {
             .sheet(item: Binding(get: { swapId.map { IdBox(id: $0) } }, set: { swapId = $0?.id })) { box in
                 ExercisePickerView { e in store.replaceExercise(box.id, e.id) }
             }
+            .sheet(item: Binding(get: { plateWeight.map { IdBox(id: $0) } }, set: { plateWeight = $0?.id })) { box in
+                PlateView(weightText: box.id)
+            }
             .fullScreenCover(item: Binding(get: { result.map { ResultBox(r: $0) } }, set: { if $0 == nil { result = nil } })) { box in
                 SummaryView(result: box.r) { result = nil }
             }
@@ -100,8 +104,8 @@ struct WorkoutView: View {
                         }
                     }
                 }
-                ForEach(a.exercises) { ex in
-                    exerciseCard(ex)
+                ForEach(Array(a.exercises.enumerated()), id: \.element.id) { idx, ex in
+                    exerciseCard(ex, partnerOfPrev: idx > 0 && a.exercises[idx - 1].superset)
                 }
                 Button { showPicker = true } label: {
                     Text("+ Gyakorlat hozzáadása").font(.headline).frame(maxWidth: .infinity).padding()
@@ -112,10 +116,25 @@ struct WorkoutView: View {
         }
     }
 
-    private func exerciseCard(_ ex: ActiveExercise) -> some View {
+    private func suggestion(_ ex: ActiveExercise) -> Double? {
+        let working = ex.sets.filter { !$0.warmup }
+        let last = store.lastSets(ex.exerciseId)
+        guard let target = working.first?.reps, target > 0, !working.contains(where: { $0.done }),
+              let lastTop = last.map({ $0.weight }).max(), lastTop > 0,
+              last.count >= working.count, last.allSatisfy({ $0.reps >= target }) else { return nil }
+        let eq = ExerciseRepo.get(ex.exerciseId)?.equipment
+        let inc = (eq == "dumbbell" || eq == "kettlebells") ? 2.0 : 2.5
+        let sug = lastTop + inc
+        return (working.first?.weight ?? 0) < sug ? sug : nil
+    }
+
+    private func exerciseCard(_ ex: ActiveExercise, partnerOfPrev: Bool) -> some View {
         let e = ExerciseRepo.get(ex.exerciseId)
         return Card {
             VStack(alignment: .leading, spacing: 10) {
+                if partnerOfPrev {
+                    Text("🔗 Szuperszett: az előző gyakorlattal váltogatva").font(.caption2).foregroundColor(Theme.gold)
+                }
                 HStack(spacing: 10) {
                     ExerciseThumb(exercise: e, size: 44)
                     NavigationLink(destination: Group { if let e = e { ExerciseDetailView(exercise: e) } }) {
@@ -123,11 +142,21 @@ struct WorkoutView: View {
                     }
                     Spacer()
                     Menu {
+                        Button(ex.superset ? "Szuperszett kikapcsolása" : "Szuperszett a következővel") { store.toggleSuperset(ex.exerciseId) }
+                        Button("Tárcsakalkulátor") { plateWeight = fmtKg(ex.sets.first(where: { !$0.warmup })?.weight ?? 0) }
                         Button("Bemelegítő szettek") { store.addWarmups(ex.exerciseId) }
                         Button("Csere másik gyakorlatra") { swapId = ex.exerciseId }
                         Button("Törlés", role: .destructive) { store.removeExercise(ex.exerciseId) }
                     } label: {
                         Image(systemName: "ellipsis.circle").font(.title3).foregroundColor(Theme.muted)
+                    }
+                }
+                if let sug = suggestion(ex) {
+                    Button { store.setWeightAll(ex.exerciseId, sug) } label: {
+                        Text("💡 Mindent megcsináltál múltkor: próbáld \(fmtKg(sug)) kg-mal (koppints)")
+                            .font(.caption).foregroundColor(Theme.gold).multilineTextAlignment(.leading)
+                            .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Theme.surf2).clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                 }
                 HStack {
@@ -153,7 +182,10 @@ struct WorkoutView: View {
                         Button {
                             let wasDone = s.done
                             store.updateSet(ex.exerciseId, s.id) { $0.done.toggle() }
-                            if !wasDone { restLeft = store.data.settings.restSeconds }
+                            if !wasDone {
+                                restLeft = store.data.settings.restSeconds
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            }
                         } label: {
                             Image(systemName: s.done ? "checkmark.circle.fill" : "circle")
                                 .font(.title2).foregroundColor(s.done ? Theme.green : Theme.muted)
@@ -201,6 +233,19 @@ struct SummaryView: View {
                         }
                     }
                 }
+                ForEach(result.newChallenges) { c in
+                    Card {
+                        HStack {
+                            Text(c.emoji).font(.largeTitle)
+                            VStack(alignment: .leading) {
+                                Text("Heti kihívás teljesítve!").font(.caption).foregroundColor(Theme.green)
+                                Text(c.title).font(.subheadline.bold()).foregroundColor(Theme.text)
+                            }
+                            Spacer()
+                            Text("+\(c.xp)").bold().foregroundColor(Theme.accent)
+                        }
+                    }
+                }
                 ForEach(result.newAchievements) { a in
                     Card {
                         HStack {
@@ -217,12 +262,13 @@ struct SummaryView: View {
                 }
                 Button(action: onClose) {
                     Text("Szuper").font(.headline).frame(maxWidth: .infinity).padding()
-                        .background(Theme.accent).foregroundColor(.black).clipShape(RoundedRectangle(cornerRadius: 16))
+                        .background(Theme.accent).foregroundColor(Theme.onAccent).clipShape(RoundedRectangle(cornerRadius: 16))
                 }
             }
             .padding()
         }
         .background(Theme.bg.ignoresSafeArea())
+        .overlay(ConfettiView().allowsHitTesting(false))
     }
 
     private func stat(_ label: String, _ value: String) -> some View {
@@ -232,5 +278,22 @@ struct SummaryView: View {
         }
         .frame(maxWidth: .infinity).padding(.vertical, 12)
         .background(Theme.surf).clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct ConfettiView: View {
+    @State private var go = false
+    private let items: [(String, CGFloat, Double, Double)] = (0..<28).map { i in
+        (["🎉", "⭐️", "✨", "🔥", "💪"][i % 5], CGFloat((i * 37) % 100) / 100, Double(i % 7) * 0.15, 2.0 + Double(i % 5) * 0.4)
+    }
+    var body: some View {
+        GeometryReader { g in
+            ForEach(0..<items.count, id: \.self) { i in
+                Text(items[i].0).font(.title2)
+                    .position(x: g.size.width * items[i].1, y: go ? g.size.height + 40 : -40)
+                    .animation(.easeIn(duration: items[i].3).delay(items[i].2), value: go)
+            }
+        }
+        .onAppear { go = true }
     }
 }

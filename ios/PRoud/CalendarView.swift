@@ -37,10 +37,13 @@ struct CalendarView: View {
                     }.foregroundColor(Theme.accent)
                     let cols = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
                     LazyVGrid(columns: cols, spacing: 6) {
-                        ForEach(["H", "K", "Sz", "Cs", "P", "Sz", "V"], id: \.self) { _ in EmptyView() }
+                        ForEach(Array(["H", "K", "Sz", "Cs", "P", "Sz", "V"].enumerated()), id: \.offset) { _, d in
+                            Text(d).font(.caption).foregroundColor(Theme.muted)
+                        }
                         ForEach(Array(days.enumerated()), id: \.offset) { _, d in
                             if let d = d {
                                 let n = sessions(on: d).count
+                                let hasPlan = store.data.plans.contains { $0.epochDay == epochDay(d) }
                                 let isSel = selected.map { cal.isDate($0, inSameDayAs: d) } ?? false
                                 Button { selected = d } label: {
                                     Text("\(cal.component(.day, from: d))")
@@ -49,7 +52,7 @@ struct CalendarView: View {
                                         .background(n > 0 ? Theme.accent : (isSel ? Theme.surf2 : Theme.surf))
                                         .foregroundColor(n > 0 ? .black : Theme.text)
                                         .clipShape(RoundedRectangle(cornerRadius: 10))
-                                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(cal.isDateInToday(d) ? Theme.gold : .clear, lineWidth: 2))
+                                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(cal.isDateInToday(d) ? Theme.gold : (hasPlan ? Theme.accent : .clear), lineWidth: 2))
                                 }
                             } else {
                                 Color.clear.frame(height: 40)
@@ -60,6 +63,26 @@ struct CalendarView: View {
                         let list = sessions(on: sel)
                         if list.isEmpty {
                             Text("Nincs edzés ezen a napon").font(.footnote).foregroundColor(Theme.muted).padding(.top, 8)
+                        }
+                        let day = epochDay(sel)
+                        let planned = store.data.plans.filter { $0.epochDay == day }
+                        ForEach(planned, id: \.self) { p in
+                            if let t = store.data.templates.first(where: { $0.id == p.templateId }) {
+                                Card {
+                                    HStack {
+                                        Text("📌 \(t.emoji) \(t.name)").foregroundColor(Theme.text)
+                                        Spacer()
+                                        Button { store.removePlan(day, t.id) } label: { Text("✕").foregroundColor(Theme.muted) }
+                                    }
+                                }
+                            }
+                        }
+                        Menu {
+                            ForEach(store.data.templates) { t in
+                                Button("\(t.emoji) \(t.name)") { store.addPlan(day, t.id) }
+                            }
+                        } label: {
+                            Text("+ Edzés tervezése erre a napra").font(.subheadline.bold()).foregroundColor(Theme.accent)
                         }
                         ForEach(list) { s in
                             Card {

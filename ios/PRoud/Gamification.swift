@@ -95,6 +95,7 @@ func computeStats(_ data: AppData) -> Stats {
         st.xp += sessionXp(s)
     }
     for id in data.unlocked.keys { st.xp += ACH_BY_ID[id]?.xp ?? 0 }
+    for k in data.challenges { st.xp += challengeXp(k) }
 
     let okWeeks = Set(weekCounts.filter { $0.value >= goal }.keys)
     let thisWeek = weekIndex(epochDay(Date()))

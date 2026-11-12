@@ -4,6 +4,7 @@ struct HomeView: View {
     @EnvironmentObject var store: Store
     @State private var group = "Mind"
     @State private var detail: Template? = nil
+    @State private var editing: Template? = nil
 
     private var groups: [String] { ["Mind"] + Hu.templateGroups }
 
@@ -16,6 +17,8 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     levelCard
+                    todayPlan
+                    challengesCard
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack {
                             ForEach(groups, id: \.self) { g in
@@ -27,6 +30,16 @@ struct HomeView: View {
                     }
                     ForEach(templates) { t in
                         Button { detail = t } label: { templateCard(t) }
+                            .contextMenu {
+                                Button("Szerkesztés") { editing = t }
+                                Button("Törlés", role: .destructive) { store.deleteTemplate(t.id) }
+                            }
+                    }
+                    Button {
+                        editing = Template(id: "c_" + UUID().uuidString, name: "", emoji: "🏋️", group: group == "Mind" ? "" : group, items: [])
+                    } label: {
+                        Text("+ Saját sablon").font(.headline).frame(maxWidth: .infinity).padding()
+                            .background(Theme.surf2).foregroundColor(Theme.text).clipShape(RoundedRectangle(cornerRadius: 16))
                     }
                     Button { store.startEmpty() } label: {
                         Text("+ Szabad edzés").font(.headline).frame(maxWidth: .infinity).padding()
@@ -39,6 +52,7 @@ struct HomeView: View {
             .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("PRoud")
             .sheet(item: $detail) { t in TemplatePreview(template: t) }
+            .sheet(item: $editing) { t in TemplateEditView(template: t) }
         }
     }
 
@@ -56,6 +70,43 @@ struct HomeView: View {
                 ProgressBarView(value: Double(li.xpInto) / Double(max(1, li.xpNeeded)))
                 Text("\(li.xpInto) / \(li.xpNeeded) XP · e heti edzés: \(st.workoutsThisWeek)/\(store.data.settings.weeklyGoal)")
                     .font(.caption).foregroundColor(Theme.muted)
+            }
+        }
+    }
+
+    @ViewBuilder private var todayPlan: some View {
+        let today = epochDay(Date())
+        let planned = store.data.plans.filter { $0.epochDay == today }.compactMap { p in store.data.templates.first(where: { $0.id == p.templateId }) }
+        if !planned.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("📌 Mára tervezve").font(.headline).foregroundColor(Theme.gold)
+                    ForEach(planned) { t in
+                        Button { detail = t } label: {
+                            Text("\(t.emoji) \(t.name)").foregroundColor(Theme.text)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var challengesCard: some View {
+        let week = weekIndex(epochDay(Date()))
+        let list = challengesFor(week, store.data)
+        return Card {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("🎯 Heti kihívások").font(.headline).foregroundColor(Theme.text)
+                ForEach(list) { c in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("\(c.emoji) \(c.title)").font(.subheadline).foregroundColor(c.done ? Theme.green : Theme.text)
+                            Spacer()
+                            Text(c.done ? "✓" : "+\(c.xp) XP").font(.caption.bold()).foregroundColor(c.done ? Theme.green : Theme.gold)
+                        }
+                        ProgressBarView(value: c.current / max(c.target, 1))
+                    }
+                }
             }
         }
     }
@@ -126,7 +177,7 @@ struct TemplatePreview: View {
                         dismiss()
                     } label: {
                         Text("Edzés indítása").font(.headline).frame(maxWidth: .infinity).padding()
-                            .background(Theme.accent).foregroundColor(.black).clipShape(RoundedRectangle(cornerRadius: 16))
+                            .background(Theme.accent).foregroundColor(Theme.onAccent).clipShape(RoundedRectangle(cornerRadius: 16))
                     }.padding(.top, 8)
                 }.padding()
             }

@@ -11,7 +11,7 @@ struct ExerciseDetailView: View {
                     ForEach(exercise.primary, id: \.self) { m in
                         Text(Hu.muscle(m)).font(.caption.weight(.bold))
                             .padding(.horizontal, 10).padding(.vertical, 5)
-                            .background(Theme.accent).foregroundColor(.black).clipShape(Capsule())
+                            .background(Theme.accent).foregroundColor(Theme.onAccent).clipShape(Capsule())
                     }
                     Text(Hu.equipment(exercise.equipment)).font(.caption)
                         .padding(.horizontal, 10).padding(.vertical, 5)

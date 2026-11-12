@@ -51,7 +51,18 @@ struct SetEntry: Codable, Identifiable, Hashable {
 struct ActiveExercise: Codable, Identifiable, Hashable {
     var exerciseId: String
     var sets: [SetEntry]
+    var superset: Bool = false
     var id: String { exerciseId }
+
+    init(exerciseId: String, sets: [SetEntry], superset: Bool = false) {
+        self.exerciseId = exerciseId; self.sets = sets; self.superset = superset
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        exerciseId = try c.decode(String.self, forKey: .exerciseId)
+        sets = try c.decode([SetEntry].self, forKey: .sets)
+        superset = try c.decodeIfPresent(Bool.self, forKey: .superset) ?? false
+    }
 }
 
 struct ActiveWorkout: Codable {
@@ -87,6 +98,26 @@ struct Session: Codable, Identifiable, Hashable {
 struct Settings: Codable {
     var weeklyGoal: Int = 3
     var restSeconds: Int = 90
+    var theme: String = "premium"
+
+    init() {}
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        weeklyGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyGoal) ?? 3
+        restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds) ?? 90
+        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "premium"
+    }
+}
+
+struct Plan: Codable, Hashable {
+    var epochDay: Int
+    var templateId: String
+}
+
+struct BodyEntry: Codable, Hashable {
+    var epochDay: Int
+    var type: String
+    var value: Double
 }
 
 struct AppData: Codable {
@@ -96,6 +127,23 @@ struct AppData: Codable {
     var settings = Settings()
     var active: ActiveWorkout? = nil
     var seed: Int = 0
+    var challenges: [String] = []
+    var body: [BodyEntry] = []
+    var plans: [Plan] = []
+
+    init() {}
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        templates = try c.decodeIfPresent([Template].self, forKey: .templates) ?? []
+        sessions = try c.decodeIfPresent([Session].self, forKey: .sessions) ?? []
+        unlocked = try c.decodeIfPresent([String: Double].self, forKey: .unlocked) ?? [:]
+        settings = try c.decodeIfPresent(Settings.self, forKey: .settings) ?? Settings()
+        active = try c.decodeIfPresent(ActiveWorkout.self, forKey: .active)
+        seed = try c.decodeIfPresent(Int.self, forKey: .seed) ?? 0
+        challenges = try c.decodeIfPresent([String].self, forKey: .challenges) ?? []
+        body = try c.decodeIfPresent([BodyEntry].self, forKey: .body) ?? []
+        plans = try c.decodeIfPresent([Plan].self, forKey: .plans) ?? []
+    }
 }
 
 struct FinishResult {
@@ -104,6 +152,7 @@ struct FinishResult {
     var xpGained: Int
     var levelBefore: Int
     var levelAfter: Int
+    var newChallenges: [Challenge] = []
 }
 
 func score(_ weight: Double, _ reps: Int) -> Double {

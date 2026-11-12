@@ -11,15 +11,18 @@ extension Color {
 }
 
 enum Theme {
-    static let bg = Color(hex: 0x0E0F13)
-    static let surf = Color(hex: 0x181A21)
-    static let surf2 = Color(hex: 0x22252E)
-    static let accent = Color(hex: 0xFF7A1A)
-    static let gold = Color(hex: 0xFFC53D)
-    static let green = Color(hex: 0x3DDC84)
-    static let muted = Color(hex: 0x8A8F9C)
-    static let text = Color(hex: 0xF2F3F5)
-    static let danger = Color(hex: 0xFF5A5F)
+    static var gamer: Bool { UserDefaults.standard.string(forKey: "proud.theme") == "gamer" }
+    static var bg: Color { gamer ? Color(hex: 0x0A0618) : Color(hex: 0x07080B) }
+    static var surf: Color { gamer ? Color(hex: 0x181033) : Color(hex: 0x12141A) }
+    static var surf2: Color { gamer ? Color(hex: 0x2B1F5E) : Color(hex: 0x1D2028) }
+    static var accent: Color { gamer ? Color(hex: 0x8B5CF6) : Color(hex: 0xFF7A3D) }
+    static var onAccent: Color { gamer ? .white : Color(hex: 0x0B0B0D) }
+    static var gold: Color { gamer ? Color(hex: 0xFFD34D) : Color(hex: 0xFFC857) }
+    static var green: Color { gamer ? Color(hex: 0x39FFB0) : Color(hex: 0x3DDC97) }
+    static var blue: Color { gamer ? Color(hex: 0x38BDF8) : Color(hex: 0x4DA3FF) }
+    static var muted: Color { gamer ? Color(hex: 0xA79FCB) : Color(hex: 0x9AA0AC) }
+    static var text: Color { gamer ? Color(hex: 0xF4F1FF) : Color(hex: 0xF2F3F5) }
+    static var danger: Color { gamer ? Color(hex: 0xFF5C8A) : Color(hex: 0xFF5C5C) }
 }
 
 struct Card<Content: View>: View {
@@ -31,6 +34,8 @@ struct Card<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.surf)
             .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18)
+                .stroke(Theme.gamer ? Theme.accent.opacity(0.45) : Color.white.opacity(0.08), lineWidth: Theme.gamer ? 1.5 : 1))
     }
 }
 
@@ -42,7 +47,7 @@ struct ChipView: View {
             .font(.subheadline.weight(.semibold))
             .padding(.horizontal, 14).padding(.vertical, 8)
             .background(selected ? Theme.accent : Theme.surf2)
-            .foregroundColor(selected ? .black : Theme.text)
+            .foregroundColor(selected ? Theme.onAccent : Theme.text)
             .clipShape(Capsule())
     }
 }
@@ -101,7 +106,7 @@ struct ProgressBarView: View {
         GeometryReader { g in
             ZStack(alignment: .leading) {
                 Capsule().fill(Theme.surf2)
-                Capsule().fill(Theme.accent).frame(width: g.size.width * CGFloat(min(1, max(0, value))))
+                Capsule().fill(Theme.gamer ? AnyShapeStyle(LinearGradient(colors: [Theme.accent, Theme.blue], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Theme.accent)).frame(width: g.size.width * CGFloat(min(1, max(0, value))))
             }
         }
         .frame(height: 8)

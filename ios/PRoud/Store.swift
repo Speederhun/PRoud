@@ -13,6 +13,7 @@ final class Store: ObservableObject {
            let decoded = try? JSONDecoder().decode(AppData.self, from: d) {
             data = decoded
         }
+        UserDefaults.standard.set(data.settings.theme, forKey: "proud.theme")
         migrate()
     }
 
@@ -163,6 +164,12 @@ final class Store: ObservableObject {
         guard !exs.isEmpty else { return nil }
         let session = Session(id: UUID().uuidString, startedAt: a.startedAt, endedAt: Date(), name: a.name, exercises: exs)
         data.sessions.append(session)
+        var newCh: [Challenge] = []
+        let wk = weekIndex(epochDay(session.startedAt))
+        for c in challengesFor(wk, data) where c.done && !data.challenges.contains(c.key) {
+            data.challenges.append(c.key)
+            newCh.append(c)
+        }
         let after = computeStats(data)
         var newAch: [Achievement] = []
         for ach in ACHIEVEMENTS where data.unlocked[ach.id] == nil && ach.progress(after) >= ach.target {
@@ -173,9 +180,75 @@ final class Store: ObservableObject {
         save()
         let final = computeStats(data)
         return FinishResult(session: session, newAchievements: newAch, xpGained: final.xp - before.xp,
-                            levelBefore: levelInfo(before.xp).level, levelAfter: levelInfo(final.xp).level)
+                            levelBefore: levelInfo(before.xp).level, levelAfter: levelInfo(final.xp).level, newChallenges: newCh)
     }
 
     func setWeeklyGoal(_ g: Int) { data.settings.weeklyGoal = g; save() }
     func setRest(_ s: Int) { data.settings.restSeconds = s; save() }
+
+    func setTheme(_ t: String) {
+        UserDefaults.standard.set(t, forKey: "proud.theme")
+        data.settings.theme = t
+        save()
+    }
+
+    func setWeightAll(_ exId: String, _ weight: Double) {
+        mutateActive { a in
+            guard let i = a.exercises.firstIndex(where: { $0.exerciseId == exId }) else { return }
+            for j in a.exercises[i].sets.indices where !a.exercises[i].sets[j].done && !a.exercises[i].sets[j].warmup {
+                a.exercises[i].sets[j].weight = weight
+            }
+        }
+    }
+
+    func toggleSuperset(_ exId: String) {
+        mutateActive { a in
+            guard let i = a.exercises.firstIndex(where: { $0.exerciseId == exId }) else { return }
+            a.exercises[i].superset.toggle()
+        }
+    }
+
+    /// Az utolsó edzés munkaszettjei az adott gyakorlatból.
+    func lastSets(_ exId: String) -> [FinishedSet] {
+        for s in data.sessions.sorted(by: { $0.startedAt > $1.startedAt }) {
+            if let e = s.exercises.first(where: { $0.exerciseId == exId }) { return e.sets }
+        }
+        return []
+    }
+
+    func saveTemplate(_ t: Template) {
+        if let i = data.templates.firstIndex(where: { $0.id == t.id }) { data.templates[i] = t }
+        else { data.templates.append(t) }
+        save()
+    }
+
+    func deleteTemplate(_ id: String) {
+        data.templates.removeAll { $0.id == id }
+        data.plans.removeAll { $0.templateId == id }
+        save()
+    }
+
+    func addPlan(_ day: Int, _ templateId: String) {
+        data.plans.append(Plan(epochDay: day, templateId: templateId))
+        save()
+    }
+
+    func removePlan(_ day: Int, _ templateId: String) {
+        if let i = data.plans.firstIndex(where: { $0.epochDay == day && $0.templateId == templateId }) {
+            data.plans.remove(at: i)
+            save()
+        }
+    }
+
+    func addBody(_ type: String, _ value: Double) {
+        let day = epochDay(Date())
+        data.body.removeAll { $0.epochDay == day && $0.type == type }
+        data.body.append(BodyEntry(epochDay: day, type: type, value: value))
+        save()
+    }
+
+    func removeBody(_ e: BodyEntry) {
+        data.body.removeAll { $0 == e }
+        save()
+    }
 }
