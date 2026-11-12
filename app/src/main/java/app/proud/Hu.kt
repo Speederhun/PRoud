@@ -65,7 +65,7 @@ object Hu {
         groups.entries.firstOrNull { muscle in it.value }?.key
 
     /** Edzéscsoportok az edzésterv-választóhoz. */
-    val templateGroups = listOf("Push", "Pull", "Láb", "Mell", "Hát", "Váll", "Kar", "Core", "Teljes test")
+    val templateGroups = listOf("Push", "Pull", "Láb", "Mell", "Hát", "Váll", "Kar", "Core", "Teljes test", "Testsúly", "Női")
 
     fun groupEmoji(g: String): String = when (g) {
         "Push" -> "🚀"
@@ -77,6 +77,8 @@ object Hu {
         "Kar" -> "💥"
         "Core" -> "🎯"
         "Teljes test" -> "🔥"
+        "Testsúly" -> "🤸"
+        "Női" -> "🌸"
         else -> "🏋️"
     }
 

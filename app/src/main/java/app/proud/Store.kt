@@ -298,7 +298,7 @@ class Store(private val file: File) {
     }
 
     companion object {
-        const val SEED_VERSION = 3
+        const val SEED_VERSION = 4
 
         private fun ti(id: String, sets: Int, reps: Int) = TemplateItem(id, sets, reps)
 
@@ -306,6 +306,15 @@ class Store(private val file: File) {
             Template(
                 id = "d_${key}_${if (quick) "quick" else "full"}",
                 name = "$group – ${if (quick) "Gyors edzés" else "Teljes edzés"}",
+                emoji = Hu.groupEmoji(group),
+                items = items,
+                group = group
+            )
+
+        private fun tplc(key: String, group: String, name: String, items: List<TemplateItem>) =
+            Template(
+                id = "d_$key",
+                name = name,
                 emoji = Hu.groupEmoji(group),
                 items = items,
                 group = group
@@ -366,7 +375,49 @@ class Store(private val file: File) {
             tpl("full", "Teljes test", false, listOf(
                 ti("Barbell_Full_Squat", 3, 8), ti("Barbell_Bench_Press_-_Medium_Grip", 3, 8),
                 ti("Bent_Over_Barbell_Row", 3, 8), ti("Barbell_Shoulder_Press", 3, 8),
-                ti("Barbell_Curl", 2, 10), ti("Triceps_Pushdown", 2, 12)))
+                ti("Barbell_Curl", 2, 10), ti("Triceps_Pushdown", 2, 12))),
+
+            // Saját testsúlyos edzések (eszköz nélkül; a húzódzkodáshoz rúd kell)
+            tplc("bw_quick", "Testsúly", "Testsúly – Gyors edzés", listOf(
+                ti("Pushups", 3, 15), ti("Bodyweight_Squat", 3, 20),
+                ti("Bodyweight_Walking_Lunge", 3, 12), ti("Dead_Bug", 3, 12))),
+            tplc("bw_full", "Testsúly", "Testsúly – Teljes edzés", listOf(
+                ti("Pushups", 4, 15), ti("Pullups", 3, 8), ti("Bodyweight_Squat", 4, 20),
+                ti("Bodyweight_Walking_Lunge", 3, 12), ti("Single_Leg_Glute_Bridge", 3, 12),
+                ti("Inverted_Row", 3, 10), ti("Bench_Dips", 3, 12),
+                ti("Crunches", 3, 20), ti("Russian_Twist", 3, 20))),
+            tplc("bw_upper", "Testsúly", "Testsúly – Felsőtest", listOf(
+                ti("Pushups", 4, 15), ti("Pullups", 4, 8), ti("Bench_Dips", 3, 12),
+                ti("Inverted_Row", 3, 10), ti("Incline_Push-Up", 3, 15),
+                ti("Push-Ups_-_Close_Triceps_Position", 3, 12))),
+            tplc("bw_lower", "Testsúly", "Testsúly – Alsótest és core", listOf(
+                ti("Bodyweight_Squat", 4, 20), ti("Bodyweight_Walking_Lunge", 3, 12),
+                ti("Single_Leg_Glute_Bridge", 3, 12), ti("Step-up_with_Knee_Raise", 3, 10),
+                ti("Freehand_Jump_Squat", 3, 12), ti("Crunches", 3, 20), ti("Russian_Twist", 3, 20))),
+
+            // Női edzésterv-javaslatok (a súlyokat a saját szinted szerint válaszd)
+            tplc("w_glute_quick", "Női", "Női – Farizom és láb, gyors", listOf(
+                ti("Barbell_Hip_Thrust", 3, 12), ti("Goblet_Squat", 3, 12), ti("Romanian_Deadlift", 3, 10))),
+            tplc("w_glute_full", "Női", "Női – Farizom és láb, teljes", listOf(
+                ti("Barbell_Hip_Thrust", 4, 10), ti("Goblet_Squat", 4, 12), ti("Romanian_Deadlift", 3, 10),
+                ti("Dumbbell_Lunges", 3, 10), ti("Leg_Press", 3, 12),
+                ti("Glute_Kickback", 3, 15), ti("Lying_Leg_Curls", 3, 12))),
+            tplc("w_upper_quick", "Női", "Női – Felsőtest, gyors", listOf(
+                ti("Dumbbell_Bench_Press", 3, 10), ti("Wide-Grip_Lat_Pulldown", 3, 10),
+                ti("Dumbbell_Shoulder_Press", 3, 10))),
+            tplc("w_upper_full", "Női", "Női – Felsőtest, teljes", listOf(
+                ti("Dumbbell_Bench_Press", 3, 10), ti("Wide-Grip_Lat_Pulldown", 3, 10),
+                ti("Dumbbell_Shoulder_Press", 3, 10), ti("Seated_Cable_Rows", 3, 12),
+                ti("Side_Lateral_Raise", 3, 12), ti("Dumbbell_Bicep_Curl", 3, 12),
+                ti("Triceps_Pushdown", 3, 12))),
+            tplc("w_full_quick", "Női", "Női – Teljes test, gyors", listOf(
+                ti("Goblet_Squat", 3, 12), ti("Dumbbell_Bench_Press", 3, 10),
+                ti("Seated_Cable_Rows", 3, 12), ti("Barbell_Hip_Thrust", 3, 10))),
+            tplc("w_full_full", "Női", "Női – Teljes test, teljes", listOf(
+                ti("Goblet_Squat", 3, 12), ti("Romanian_Deadlift", 3, 10),
+                ti("Dumbbell_Bench_Press", 3, 10), ti("Seated_Cable_Rows", 3, 12),
+                ti("Dumbbell_Shoulder_Press", 3, 10), ti("Barbell_Hip_Thrust", 3, 12),
+                ti("Crunches", 3, 20)))
         )
 
         private fun encode(d: AppData): JSONObject {
