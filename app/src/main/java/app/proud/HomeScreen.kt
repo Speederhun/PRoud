@@ -47,6 +47,7 @@ fun HomeScreen(
 ) {
     val stats = remember(data) { computeStats(data) }
     val li = levelInfo(stats.xp)
+    val chs = remember(data) { challengesFor(weekIndex(LocalDate.now().toEpochDay()), data) }
     var pending by remember { mutableStateOf<Template?>(null) }
     var selGroup by remember { mutableStateOf("") }
 
@@ -83,15 +84,7 @@ fun HomeScreen(
         item {
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(Orange),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("${li.level}", color = Color.Black, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-                    }
+                    LevelBadge(li.level, if (ThemeState.gamer) 64 else 56)
                     Column(Modifier.padding(start = 12.dp)) {
                         Text(li.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextMain)
                         Text("${li.xpInto} / ${li.xpNeeded} XP a következő szintig", color = Muted, fontSize = 12.sp)
@@ -104,6 +97,35 @@ fun HomeScreen(
                     StatBlock("🔥", "${stats.streak} hét", "széria")
                     StatBlock("📅", "${stats.workoutsThisWeek}/${data.settings.weeklyGoal}", "e héten")
                     StatBlock("🏆", "${data.unlocked.size}/${ACHIEVEMENTS.size}", "achievement")
+                }
+            }
+        }
+
+        item {
+            AppCard(Modifier.fillMaxWidth()) {
+                Text("🎯 Heti kihívások", fontWeight = FontWeight.Bold, color = TextMain, fontSize = 16.sp)
+                Spacer(Modifier.height(6.dp))
+                chs.forEach { c ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 5.dp)
+                    ) {
+                        Text(c.emoji, fontSize = 20.sp)
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(horizontal = 10.dp)
+                        ) {
+                            Text(c.title, color = if (c.done) Green else TextMain, fontSize = 13.sp)
+                            Spacer(Modifier.height(4.dp))
+                            ProgressBar((c.current / c.target).toFloat(), if (c.done) Green else Orange, 6)
+                        }
+                        Text(
+                            if (c.done) "✔ +${c.xp} XP" else "${fmtNum(Math.min(c.current, c.target))}/${fmtNum(c.target)}",
+                            color = if (c.done) Green else Muted,
+                            fontSize = 11.sp
+                        )
+                    }
                 }
             }
         }

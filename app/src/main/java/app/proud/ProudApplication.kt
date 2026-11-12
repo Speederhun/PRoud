@@ -14,6 +14,7 @@ class ProudApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         ExerciseRepo.load(this)
         store = Store(File(filesDir, "proud.json"))
+        ThemeState.style = store.data.value.settings.theme
     }
 
     override fun newImageLoader(): ImageLoader =

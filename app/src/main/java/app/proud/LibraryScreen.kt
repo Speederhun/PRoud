@@ -226,7 +226,7 @@ fun ExerciseDetailDialog(data: AppData, id: String, onDismiss: () -> Unit) {
 
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ex.primary.forEach { Tag(Hu.muscle(it), Orange, androidx.compose.ui.graphics.Color.Black) }
+                        ex.primary.forEach { Tag(Hu.muscle(it), Orange, OnAccent) }
                         ex.secondary.take(3).forEach { Tag(Hu.muscle(it)) }
                     }
                     Spacer(Modifier.height(6.dp))

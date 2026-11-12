@@ -113,7 +113,13 @@ private fun MainScaffold(
     onStartTemplate: (Template) -> Unit,
     onOpenDetail: (String) -> Unit
 ) {
-    val tabs = listOf("🏋️" to "Edzés", "📅" to "Naptár", "🏆" to "Achievement", "📚" to "Gyakorlatok")
+    val tabs = listOf(
+        "🏋️" to "Edzés",
+        "📅" to "Naptár",
+        "📈" to "Haladás",
+        "🏆" to "Profil",
+        "📚" to "Gyakorlat"
+    )
     Scaffold(
         containerColor = Bg,
         bottomBar = {
@@ -138,7 +144,8 @@ private fun MainScaffold(
             when (tab) {
                 0 -> HomeScreen(store, data, onStarted = onOpenWorkout, onEdit = onEdit)
                 1 -> CalendarScreen(store, data, onStart = onStartTemplate)
-                2 -> AchievementsScreen(store, data)
+                2 -> ProgressScreen(store, data)
+                3 -> AchievementsScreen(store, data)
                 else -> LibraryScreen(onOpen = onOpenDetail)
             }
         }

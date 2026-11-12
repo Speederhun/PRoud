@@ -29,9 +29,19 @@ data class Template(
     val group: String = ""
 )
 
-data class SetEntry(val id: Long, val weight: Double, val reps: Int, val done: Boolean)
+data class SetEntry(
+    val id: Long,
+    val weight: Double,
+    val reps: Int,
+    val done: Boolean,
+    val warmup: Boolean = false
+)
 
-data class ActiveExercise(val exerciseId: String, val sets: List<SetEntry>)
+data class ActiveExercise(
+    val exerciseId: String,
+    val sets: List<SetEntry>,
+    val superset: Boolean = false
+)
 
 data class ActiveWorkout(
     val startedAt: Long,
@@ -59,7 +69,14 @@ data class Session(
 
 data class Plan(val epochDay: Long, val templateId: String)
 
-data class Settings(val weeklyGoal: Int = 3, val restSeconds: Int = 90)
+data class Settings(
+    val weeklyGoal: Int = 3,
+    val restSeconds: Int = 90,
+    val theme: String = "premium"
+)
+
+/** Test-adat: típus (Testsúly, Mellkas, ...) és érték egy adott napon. */
+data class BodyEntry(val epochDay: Long, val type: String, val value: Double)
 
 data class AppData(
     val templates: List<Template>,
@@ -67,7 +84,9 @@ data class AppData(
     val plans: List<Plan>,
     val unlocked: Map<String, Long>,
     val settings: Settings,
-    val active: ActiveWorkout?
+    val active: ActiveWorkout?,
+    val challenges: Set<String> = emptySet(),
+    val body: List<BodyEntry> = emptyList()
 )
 
 fun Long.toLocalDate(): LocalDate =

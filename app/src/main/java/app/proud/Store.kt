@@ -15,7 +15,8 @@ data class FinishResult(
     val newAchievements: List<Achievement>,
     val xpGained: Int,
     val levelBefore: Int,
-    val levelAfter: Int
+    val levelAfter: Int,
+    val newChallenges: List<Challenge> = emptyList()
 )
 
 class Store(private val file: File) {
@@ -124,7 +125,7 @@ class Store(private val file: File) {
         a.copy(exercises = a.exercises.mapIndexed { i, e ->
             if (i != exIndex) e
             else {
-                val last = e.sets.lastOrNull()
+                val last = e.sets.lastOrNull { !it.warmup }
                 e.copy(sets = e.sets + SetEntry(nextId(), last?.weight ?: 0.0, last?.reps ?: 8, false))
             }
         })
@@ -151,12 +152,46 @@ class Store(private val file: File) {
         a.copy(exercises = a.exercises.mapIndexed { i, e ->
             if (i != exIndex) e
             else {
-                val sets = e.sets.mapIndexed { si, old ->
+                val sets = e.sets.filter { !it.warmup }.mapIndexed { si, old ->
                     val prev = last.getOrNull(si) ?: last.lastOrNull()
                     SetEntry(nextId(), prev?.weight ?: 0.0, old.reps, false)
                 }
-                ActiveExercise(newId, sets)
+                ActiveExercise(newId, sets, e.superset)
             }
+        })
+    }
+
+    /** Minden be nem fejezett munkaszett súlyát átállítja. */
+    fun setWeightAll(exIndex: Int, weight: Double) = updateActive { a ->
+        a.copy(exercises = a.exercises.mapIndexed { i, e ->
+            if (i != exIndex) e
+            else e.copy(sets = e.sets.map { if (!it.done && !it.warmup) it.copy(weight = weight) else it })
+        })
+    }
+
+    /** Bemelegítő szettek (40% / 60% / 80%) a munkasúlyból. */
+    fun addWarmups(exIndex: Int) = updateActive { a ->
+        a.copy(exercises = a.exercises.mapIndexed { i, e ->
+            if (i != exIndex) e
+            else {
+                val work = e.sets.firstOrNull { !it.warmup }
+                val w = work?.weight ?: 0.0
+                if (w <= 0.0 || e.sets.any { it.warmup }) e
+                else {
+                    val steps = listOf(0.4 to 5, 0.6 to 3, 0.8 to 2)
+                    val warm = steps.map { (f, r) ->
+                        val raw = Math.round(w * f / 2.5) * 2.5
+                        SetEntry(nextId(), if (raw < 2.5) 2.5 else raw, r, false, true)
+                    }
+                    e.copy(sets = warm + e.sets)
+                }
+            }
+        })
+    }
+
+    fun toggleSuperset(exIndex: Int) = updateActive { a ->
+        a.copy(exercises = a.exercises.mapIndexed { i, e ->
+            if (i != exIndex) e else e.copy(superset = !e.superset)
         })
     }
 
@@ -178,7 +213,7 @@ class Store(private val file: File) {
 
         val exs = ArrayList<SessionExercise>()
         for (e in a.exercises) {
-            val done = e.sets.filter { it.done }
+            val done = e.sets.filter { it.done && !it.warmup }
             if (done.isEmpty()) continue
             val top = done.maxByOrNull { score(it.weight, it.reps) } ?: continue
             val topScore = score(top.weight, top.reps)
@@ -193,7 +228,13 @@ class Store(private val file: File) {
         val statsAfter = computeStats(afterSession)
         val newly = ACHIEVEMENTS.filter { it.id !in d.unlocked && it.progress(statsAfter) >= it.target }
         val unlocked = d.unlocked + newly.associate { it.id to now }
-        val finalData = afterSession.copy(unlocked = unlocked)
+        val week = weekIndex(session.date.toEpochDay())
+        val newCh = challengesFor(week, afterSession)
+            .filter { it.done && !d.challenges.contains(it.key) }
+        val finalData = afterSession.copy(
+            unlocked = unlocked,
+            challenges = d.challenges + newCh.map { it.key }
+        )
         val xpAfter = computeStats(finalData).xp
 
         state.value = finalData
@@ -203,7 +244,8 @@ class Store(private val file: File) {
             newAchievements = newly,
             xpGained = xpAfter - xpBefore,
             levelBefore = levelInfo(xpBefore).level,
-            levelAfter = levelInfo(xpAfter).level
+            levelAfter = levelInfo(xpAfter).level,
+            newChallenges = newCh
         )
     }
 
@@ -220,7 +262,21 @@ class Store(private val file: File) {
 
     // ---------- beállítások ----------
 
-    fun setSettings(s: Settings) = mutate { it.copy(settings = s) }
+    fun setSettings(s: Settings) {
+        ThemeState.style = s.theme
+        mutate { it.copy(settings = s) }
+    }
+
+    // ---------- test adatok ----------
+
+    fun addBody(epochDay: Long, type: String, value: Double) = mutate { d ->
+        val rest = d.body.filterNot { it.epochDay == epochDay && it.type == type }
+        d.copy(body = (rest + BodyEntry(epochDay, type, value)).sortedBy { it.epochDay })
+    }
+
+    fun removeBody(entry: BodyEntry) = mutate { d ->
+        d.copy(body = d.body.filterNot { it == entry })
+    }
 
     // ---------- betöltés / mentés ----------
 
@@ -375,6 +431,17 @@ class Store(private val file: File) {
             o.put("settings", JSONObject().apply {
                 put("goal", d.settings.weeklyGoal)
                 put("rest", d.settings.restSeconds)
+                put("theme", d.settings.theme)
+            })
+            o.put("ch", JSONArray().also { arr -> d.challenges.forEach { arr.put(it) } })
+            o.put("body", JSONArray().also { arr ->
+                d.body.forEach { b ->
+                    arr.put(JSONObject().apply {
+                        put("d", b.epochDay)
+                        put("t", b.type)
+                        put("v", b.value)
+                    })
+                }
             })
             val a = d.active
             if (a != null) {
@@ -385,9 +452,11 @@ class Store(private val file: File) {
                         a.exercises.forEach { e ->
                             ea.put(JSONObject().apply {
                                 put("ex", e.exerciseId)
+                                put("ss", e.superset)
                                 put("sets", JSONArray().also { sa ->
                                     e.sets.forEach { st ->
                                         sa.put(JSONObject().apply {
+                                            put("wu", st.warmup)
                                             put("id", st.id)
                                             put("w", st.weight)
                                             put("r", st.reps)
@@ -455,7 +524,7 @@ class Store(private val file: File) {
 
             val so = o.optJSONObject("settings")
             val settings = if (so == null) Settings()
-            else Settings(so.optInt("goal", 3), so.optInt("rest", 90))
+            else Settings(so.optInt("goal", 3), so.optInt("rest", 90), so.optString("theme", "premium"))
 
             var active: ActiveWorkout? = null
             val ao = o.optJSONObject("active")
@@ -468,9 +537,9 @@ class Store(private val file: File) {
                     val seta = e.optJSONArray("sets") ?: JSONArray()
                     for (k in 0 until seta.length()) {
                         val st = seta.getJSONObject(k)
-                        sets.add(SetEntry(st.getLong("id"), st.optDouble("w", 0.0), st.optInt("r", 0), st.optBoolean("done", false)))
+                        sets.add(SetEntry(st.getLong("id"), st.optDouble("w", 0.0), st.optInt("r", 0), st.optBoolean("done", false), st.optBoolean("wu", false)))
                     }
-                    exs.add(ActiveExercise(e.getString("ex"), sets))
+                    exs.add(ActiveExercise(e.getString("ex"), sets, e.optBoolean("ss", false)))
                 }
                 active = ActiveWorkout(ao.getLong("start"), ao.optString("name", "Edzés"), exs)
             }
@@ -482,7 +551,18 @@ class Store(private val file: File) {
                 finalTemplates = defaults + templates.filter { it.id !in replaceIds }
             }
 
-            return AppData(finalTemplates, sessions, plans, unlocked, settings, active)
+            val challenges = HashSet<String>()
+            val cha = o.optJSONArray("ch") ?: JSONArray()
+            for (i in 0 until cha.length()) challenges.add(cha.getString(i))
+
+            val body = ArrayList<BodyEntry>()
+            val ba = o.optJSONArray("body") ?: JSONArray()
+            for (i in 0 until ba.length()) {
+                val b = ba.getJSONObject(i)
+                body.add(BodyEntry(b.getLong("d"), b.getString("t"), b.getDouble("v")))
+            }
+
+            return AppData(finalTemplates, sessions, plans, unlocked, settings, active, challenges, body)
         }
     }
 }

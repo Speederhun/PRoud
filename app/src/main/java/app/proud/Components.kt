@@ -9,6 +9,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -73,8 +75,15 @@ fun AppCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
-    var m = modifier.clip(shape).background(Surf)
+    val gamer = ThemeState.gamer
+    val shape = RoundedCornerShape(if (gamer) 14.dp else 20.dp)
+    var m = modifier.clip(shape)
+    m = if (gamer) {
+        m.background(Brush.verticalGradient(listOf(Surf2, Surf)))
+    } else {
+        m.background(Surf)
+    }
+    m = m.border(1.dp, Outline, shape)
     if (onClick != null) m = m.clickable(onClick = onClick)
     Column(m.padding(14.dp), content = content)
 }
@@ -86,12 +95,13 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
         Modifier
             .clip(shape)
             .background(if (selected) Orange else Surf2)
+            .border(1.dp, if (selected) Orange else Outline, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
         Text(
             text,
-            color = if (selected) Color.Black else TextMain,
+            color = if (selected) OnAccent else TextMain,
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
         )
@@ -120,12 +130,16 @@ fun ProgressBar(fraction: Float, color: Color = Orange, height: Int = 8, modifie
             .clip(RoundedCornerShape(50))
             .background(Surf2)
     ) {
+        val fillMod = Modifier
+            .fillMaxHeight()
+            .fillMaxWidth(f)
+            .clip(RoundedCornerShape(50))
         Box(
-            Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(f)
-                .clip(RoundedCornerShape(50))
-                .background(color)
+            if (ThemeState.gamer && color == Orange) {
+                fillMod.background(Brush.horizontalGradient(listOf(Orange, Color(0xFFFF4FD8))))
+            } else {
+                fillMod.background(color)
+            }
         )
     }
 }
@@ -314,3 +328,25 @@ fun Confetti(modifier: Modifier = Modifier, count: Int = 140) {
 
 fun fmtNum(d: Double): String =
     if (d >= 1000.0) String.format(java.util.Locale("hu"), "%,d", d.toLong()) else fmtKg(d)
+
+@Composable
+fun LevelBadge(level: Int, size: Int = 56) {
+    val gamer = ThemeState.gamer
+    var m = Modifier
+        .size(size.dp)
+        .clip(CircleShape)
+    m = if (gamer) {
+        m.background(Brush.verticalGradient(listOf(Orange, Color(0xFFFF4FD8))))
+            .border(3.dp, Gold, CircleShape)
+    } else {
+        m.background(Orange)
+    }
+    Box(m, contentAlignment = Alignment.Center) {
+        Text(
+            "$level",
+            color = OnAccent,
+            fontSize = (size / 2.3f).sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+    }
+}

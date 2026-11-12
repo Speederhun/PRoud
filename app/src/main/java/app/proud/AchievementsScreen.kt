@@ -3,6 +3,9 @@ package app.proud
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Button
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -29,6 +32,8 @@ fun AchievementsScreen(store: Store, data: AppData) {
     val stats = remember(data) { computeStats(data) }
     val li = levelInfo(stats.xp)
     val byCategory = remember { ACHIEVEMENTS.groupBy { it.category } }
+    val ctx = LocalContext.current
+    val records = remember(data.sessions) { recordRows(data) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -63,6 +68,51 @@ fun AchievementsScreen(store: Store, data: AppData) {
                     Column {
                         Text("${stats.prs}", fontWeight = FontWeight.Bold, color = TextMain, fontSize = 18.sp)
                         Text("rekord", color = Muted, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
+        item {
+            AppCard(Modifier.fillMaxWidth()) {
+                Text("🎨 Stílus", fontWeight = FontWeight.Bold, color = TextMain)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("🌑 Sötét és prémium", data.settings.theme != "gamer") {
+                        store.setSettings(data.settings.copy(theme = "premium"))
+                    }
+                    Chip("🎮 Játékos", data.settings.theme == "gamer") {
+                        store.setSettings(data.settings.copy(theme = "gamer"))
+                    }
+                }
+            }
+        }
+
+        item {
+            AppCard(Modifier.fillMaxWidth()) {
+                Text("🏆 Rekordfal", fontWeight = FontWeight.Bold, color = TextMain)
+                Spacer(Modifier.height(6.dp))
+                if (records.isEmpty()) {
+                    Text("Az első súlyos edzés után itt jelennek meg a rekordjaid.", color = Muted, fontSize = 13.sp)
+                } else {
+                    records.forEachIndexed { i, r ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("${i + 1}.", color = Gold, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(ExerciseRepo.nameOf(r.exerciseId), color = TextMain, fontSize = 14.sp)
+                                Text("becsült 1RM: ${fmtKg(Math.round(r.oneRm).toDouble())} kg", color = Muted, fontSize = 11.sp)
+                            }
+                            Text("${fmtKg(r.weight)} kg × ${r.reps}", color = Gold, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { ShareCard.share(ctx, records, "Lv. ${li.level} · ${li.title}") }) {
+                        Text("Megosztás képként")
                     }
                 }
             }
@@ -144,10 +194,14 @@ private fun AchievementCard(a: Achievement, stats: Stats, unlockedAt: Long?, mod
     val unlocked = unlockedAt != null
     val shape = RoundedCornerShape(16.dp)
     val border = if (unlocked) tierColor(a.tier) else Surf2
+    val glow = ThemeState.gamer && unlocked
     Column(
         modifier
-            .background(if (unlocked) Surf else Surf.copy(alpha = 0.6f), shape)
-            .border(1.5.dp, border, shape)
+            .then(
+                if (glow) Modifier.background(Brush.verticalGradient(listOf(tierColor(a.tier).copy(alpha = 0.30f), Surf)), shape)
+                else Modifier.background(if (unlocked) Surf else Surf.copy(alpha = 0.6f), shape)
+            )
+            .border(if (glow) 2.dp else 1.5.dp, border, shape)
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

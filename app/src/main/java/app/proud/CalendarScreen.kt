@@ -129,7 +129,7 @@ fun CalendarScreen(
                                     Box(m.clickable { selected = date }, contentAlignment = Alignment.Center) {
                                         Text(
                                             "$dayNum",
-                                            color = if (done) Color.Black else TextMain,
+                                            color = if (done) OnAccent else TextMain,
                                             fontWeight = if (done || isToday) FontWeight.Bold else FontWeight.Normal,
                                             fontSize = 14.sp
                                         )

@@ -1,6 +1,8 @@
 package app.proud
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -105,9 +107,11 @@ fun WorkoutScreen(
     }
 
     if (active != null) {
-        val doneCount = active.exercises.sumOf { e -> e.sets.count { it.done } }
-        val totalCount = active.exercises.sumOf { it.sets.size }
-        val volume = active.exercises.sumOf { e -> e.sets.filter { it.done }.sumOf { it.weight * it.reps } }
+        val doneCount = active.exercises.sumOf { e -> e.sets.count { it.done && !it.warmup } }
+        val totalCount = active.exercises.sumOf { e -> e.sets.count { !it.warmup } }
+        val volume = active.exercises.sumOf { e ->
+            e.sets.filter { it.done && !it.warmup }.sumOf { it.weight * it.reps }
+        }
 
         Scaffold(
             containerColor = Bg,
@@ -157,11 +161,16 @@ fun WorkoutScreen(
                         store = store,
                         exIdx = exIdx,
                         ex = ex,
+                        linkable = !isLastExercise,
+                        partnerOfPrev = exIdx > 0 && active.exercises[exIdx - 1].superset,
                         onInfo = onInfo,
                         onSwap = { swapIdx = exIdx },
-                        onSetDone = { isLastSet ->
+                        onSetDone = { isLastSet, warmup, linkedNext ->
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            if (!(isLastExercise && isLastSet)) {
+                            val isFinal = isLastExercise && isLastSet
+                            if (warmup) {
+                                restEnd = System.currentTimeMillis() + 45_000L
+                            } else if (!isFinal && !linkedNext) {
                                 restEnd = System.currentTimeMillis() + data.settings.restSeconds * 1000L
                             }
                         }
@@ -296,16 +305,36 @@ private fun ExerciseBlock(
     store: Store,
     exIdx: Int,
     ex: ActiveExercise,
+    linkable: Boolean,
+    partnerOfPrev: Boolean,
     onInfo: (String) -> Unit,
     onSwap: () -> Unit,
-    onSetDone: (isLastSet: Boolean) -> Unit
+    onSetDone: (isLastSet: Boolean, warmup: Boolean, linkedNext: Boolean) -> Unit
 ) {
     val info = ExerciseRepo.get(ex.exerciseId)
     val last = remember(ex.exerciseId) { store.lastSets(ex.exerciseId) }
     val histBest = remember(ex.exerciseId) { store.historyBest(ex.exerciseId) }
-    val bestDone = ex.sets.filter { it.done }.maxOfOrNull { score(it.weight, it.reps) } ?: 0.0
+    val working = ex.sets.filter { !it.warmup }
+    val bestDone = ex.sets.filter { it.done && !it.warmup }.maxOfOrNull { score(it.weight, it.reps) } ?: 0.0
+    val noneDone = ex.sets.none { it.done }
+    var showPlates by remember { mutableStateOf(false) }
 
-    AppCard {
+    val target = working.firstOrNull()?.reps ?: 0
+    val currentW = working.firstOrNull()?.weight ?: 0.0
+    val lastTop = last.maxOfOrNull { it.weight } ?: 0.0
+    val suggestion: Double? =
+        if (noneDone && target > 0 && lastTop > 0.0 && last.size >= working.size && last.all { it.reps >= target }) {
+            val inc = if (info?.equipment == "dumbbell" || info?.equipment == "kettlebells") 2.0 else 2.5
+            lastTop + inc
+        } else {
+            null
+        }
+
+    AppCard(Modifier.animateContentSize()) {
+        if (partnerOfPrev) {
+            Text("🔗 Szuperszett: az előző gyakorlattal váltogatva", color = Gold, fontSize = 11.sp)
+            Spacer(Modifier.height(6.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             ExerciseThumb(info, 52)
             Column(
@@ -328,7 +357,7 @@ private fun ExerciseBlock(
                     maxLines = 2
                 )
             }
-            if (ex.sets.none { it.done }) {
+            if (noneDone) {
                 Text(
                     "🔄",
                     fontSize = 18.sp,
@@ -355,20 +384,40 @@ private fun ExerciseBlock(
             )
         }
 
+        if (suggestion != null && currentW < suggestion) {
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Surf2)
+                    .clickable { store.setWeightAll(exIdx, suggestion) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    "💡 Mindent megcsináltál múltkor: próbáld ${fmtKg(suggestion)} kg-mal (koppints)",
+                    color = Gold,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("SZETT", color = Muted, fontSize = 10.sp, modifier = Modifier.width(36.dp))
             Text("KG", color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             Text("ISM", color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-            Spacer(Modifier.size(88.dp))
+            Spacer(Modifier.size(90.dp))
         }
 
+        var workIdx = 0
         ex.sets.forEachIndexed { sIdx, set ->
+            if (!set.warmup) workIdx += 1
+            val label = if (set.warmup) "M" else "$workIdx"
             key(set.id) {
                 val sc = score(set.weight, set.reps)
-                val livePr = set.done && sc > 0.0 && sc > histBest && sc >= bestDone
+                val livePr = !set.warmup && set.done && sc > 0.0 && sc > histBest && sc >= bestDone
                 SetRow(
-                    index = sIdx + 1,
+                    label = label,
                     set = set,
                     isPr = livePr,
                     onWeight = { s ->
@@ -382,22 +431,141 @@ private fun ExerciseBlock(
                     onToggle = {
                         val nowDone = !set.done
                         store.updateSet(exIdx, set.id) { it.copy(done = nowDone) }
-                        if (nowDone) onSetDone(sIdx == ex.sets.lastIndex)
+                        if (nowDone) onSetDone(sIdx == ex.sets.lastIndex, set.warmup, ex.superset)
                     },
                     onDelete = { store.removeSet(exIdx, set.id) }
                 )
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             TextButton(onClick = { store.addSet(exIdx) }) { Text("+ Szett") }
+            if (noneDone && ex.sets.none { it.warmup } && currentW > 0.0) {
+                TextButton(onClick = { store.addWarmups(exIdx) }) { Text("🔥 Bemelegítés") }
+            }
+            if (info?.equipment == "barbell" || info?.equipment == "e-z curl bar") {
+                TextButton(onClick = { showPlates = true }) { Text("⚖ Tárcsák") }
+            }
+            if (linkable) {
+                TextButton(onClick = { store.toggleSuperset(exIdx) }) {
+                    Text(if (ex.superset) "🔗 Szuperszett: be" else "🔗 Szuperszett")
+                }
+            }
         }
+    }
+
+    if (showPlates) {
+        PlateDialog(
+            initialWeight = currentW,
+            ez = info?.equipment == "e-z curl bar",
+            onDismiss = { showPlates = false }
+        )
     }
 }
 
 @Composable
+private fun PlateDialog(initialWeight: Double, ez: Boolean, onDismiss: () -> Unit) {
+    var weightText by remember { mutableStateOf(if (initialWeight > 0.0) fmtKg(initialWeight) else "") }
+    var bar by remember { mutableStateOf(if (ez) 10.0 else 20.0) }
+    val target = weightText.toDoubleOrNull() ?: 0.0
+    val plates = listOf(25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25)
+    var rest = (target - bar) / 2.0
+    val used = ArrayList<Pair<Double, Int>>()
+    if (rest > 0.0) {
+        for (p in plates) {
+            val n = Math.floor(rest / p + 1e-9).toInt()
+            if (n > 0) {
+                used.add(p to n)
+                rest -= n * p
+            }
+        }
+    }
+    val leftover = if (rest > 0.01) rest * 2.0 else 0.0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surf,
+        title = { Text("Tárcsakalkulátor") },
+        text = {
+            Column {
+                Text("Cél súly (kg)", color = Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(4.dp))
+                NumField(
+                    initial = weightText,
+                    placeholder = "kg",
+                    decimal = true,
+                    onValue = { weightText = it },
+                    modifier = Modifier.width(120.dp)
+                )
+                Spacer(Modifier.height(10.dp))
+                Text("Rúd súlya", color = Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(20.0, 15.0, 10.0).forEach { b ->
+                        Chip("${fmtKg(b)} kg", bar == b) { bar = b }
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                if (target <= bar) {
+                    Text("Ennyi a rúd súlya, nem kell tárcsa.", color = Muted)
+                } else {
+                    Text("Oldalanként:", color = Muted, fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .width(18.dp)
+                                .height(8.dp)
+                                .background(Muted)
+                        )
+                        used.forEach { (p, n) ->
+                            repeat(n) {
+                                Box(
+                                    Modifier
+                                        .padding(end = 2.dp)
+                                        .width(14.dp)
+                                        .height((24 + p * 2.4).dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(plateColor(p))
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    used.forEach { (p, n) ->
+                        Text("$n × ${fmtKg(p)} kg", color = TextMain, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (leftover > 0.0) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Maradék: ${fmtKg(Math.round(leftover * 100) / 100.0)} kg nem rakható ki ezekkel a tárcsákkal.",
+                            color = Danger,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Kész") } }
+    )
+}
+
+private fun plateColor(p: Double): Color = when (p) {
+    25.0 -> Color(0xFFE53935)
+    20.0 -> Color(0xFF1E88E5)
+    15.0 -> Color(0xFFFDD835)
+    10.0 -> Color(0xFF43A047)
+    5.0 -> Color(0xFFF5F5F5)
+    2.5 -> Color(0xFF9E9E9E)
+    else -> Color(0xFFBDBDBD)
+}
+
+@Composable
 private fun SetRow(
-    index: Int,
+    label: String,
     set: SetEntry,
     isPr: Boolean,
     onWeight: (String) -> Unit,
@@ -413,8 +581,8 @@ private fun SetRow(
     ) {
         Box(Modifier.size(width = 36.dp, height = 44.dp), contentAlignment = Alignment.Center) {
             Text(
-                if (isPr) "🏆" else "$index",
-                color = if (set.done) Green else Muted,
+                if (isPr) "🏆" else label,
+                color = if (set.done) Green else if (set.warmup) Gold else Muted,
                 fontWeight = FontWeight.Bold,
                 fontSize = if (isPr) 18.sp else 15.sp
             )
@@ -572,6 +740,23 @@ fun SummaryDialog(r: FinishResult, onDone: () -> Unit) {
                                     Text(a.title, fontWeight = FontWeight.Bold, color = tierColor(a.tier), fontSize = 17.sp)
                                     Text(a.desc, color = Muted, fontSize = 12.sp)
                                     Text("+${a.xp} XP", color = Gold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (r.newChallenges.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    Text("Heti kihívás teljesítve!", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextMain)
+                    r.newChallenges.forEach { c ->
+                        Spacer(Modifier.height(10.dp))
+                        AppCard(Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                BouncyEmoji(c.emoji, 36.sp)
+                                Column(Modifier.padding(start = 14.dp)) {
+                                    Text(c.title, fontWeight = FontWeight.Bold, color = TextMain, fontSize = 15.sp)
+                                    Text("+${c.xp} XP", color = Gold, fontSize = 12.sp)
                                 }
                             }
                         }

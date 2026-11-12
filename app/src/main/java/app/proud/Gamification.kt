@@ -177,6 +177,7 @@ fun computeStats(data: AppData): Stats {
     }
 
     for (id in data.unlocked.keys) xp += ACH_BY_ID[id]?.xp ?: 0
+    for (k in data.challenges) xp += challengeXp(k)
 
     val okWeeks = weekCounts.filter { it.value >= goal }.keys
     val thisWeek = weekIndex(LocalDate.now().toEpochDay())
