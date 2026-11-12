@@ -46,6 +46,7 @@ fun TemplateEditScreen(
     val existing = data.templates.firstOrNull { it.id == templateId }
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "💪") }
+    var group by remember { mutableStateOf(existing?.group ?: "") }
     var items by remember { mutableStateOf(existing?.items ?: emptyList()) }
     var showPicker by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
@@ -75,7 +76,7 @@ fun TemplateEditScreen(
                     enabled = canSave,
                     onClick = {
                         val id = existing?.id ?: store.newTemplateId()
-                        store.saveTemplate(Template(id, name.trim(), emoji, items))
+                        store.saveTemplate(Template(id, name.trim(), emoji, items, group))
                         onClose()
                     }
                 ) { Text("Mentés") }
@@ -93,7 +94,7 @@ fun TemplateEditScreen(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Az edzés neve") },
+                    label = { Text("Az edzés neve (pl. Mell – Gyors edzés)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -105,6 +106,20 @@ fun TemplateEditScreen(
                 ) {
                     EMOJIS.forEach { e ->
                         Chip(e, emoji == e) { emoji = e }
+                    }
+                }
+            }
+
+            item {
+                Text("Csoport", color = Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Chip("Saját", group.isEmpty()) { group = "" }
+                    Hu.templateGroups.forEach { g ->
+                        Chip(g, group == g) { group = g }
                     }
                 }
             }

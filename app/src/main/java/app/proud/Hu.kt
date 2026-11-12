@@ -64,6 +64,20 @@ object Hu {
     fun groupOf(muscle: String): String? =
         groups.entries.firstOrNull { muscle in it.value }?.key
 
+    /** Edzéscsoportok az edzésterv-választóhoz. */
+    val templateGroups = listOf("Mell", "Hát", "Láb", "Váll", "Kar", "Core", "Teljes test")
+
+    fun groupEmoji(g: String): String = when (g) {
+        "Mell" -> "💪"
+        "Hát" -> "🦍"
+        "Láb" -> "🦵"
+        "Váll" -> "🙌"
+        "Kar" -> "💥"
+        "Core" -> "🎯"
+        "Teljes test" -> "🔥"
+        else -> "🏋️"
+    }
+
     val mainEquipment = listOf("barbell", "dumbbell", "cable", "machine", "body only", "kettlebells")
 
     class Info(val name: String, val tips: List<String>)

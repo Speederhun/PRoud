@@ -25,7 +25,8 @@ data class Template(
     val id: String,
     val name: String,
     val emoji: String,
-    val items: List<TemplateItem>
+    val items: List<TemplateItem>,
+    val group: String = ""
 )
 
 data class SetEntry(val id: Long, val weight: Double, val reps: Int, val done: Boolean)

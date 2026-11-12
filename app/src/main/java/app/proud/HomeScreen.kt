@@ -1,6 +1,8 @@
 package app.proud
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +48,7 @@ fun HomeScreen(
     val stats = remember(data) { computeStats(data) }
     val li = levelInfo(stats.xp)
     var pending by remember { mutableStateOf<Template?>(null) }
+    var selGroup by remember { mutableStateOf("") }
 
     fun start(t: Template) {
         store.startWorkout(t.name, t.items)
@@ -54,6 +57,12 @@ fun HomeScreen(
 
     fun tryStart(t: Template) {
         if (data.active != null) pending = t else start(t)
+    }
+
+    val shown = when (selGroup) {
+        "" -> data.templates
+        "Saját" -> data.templates.filter { it.group.isEmpty() }
+        else -> data.templates.filter { it.group == selGroup }
     }
 
     val today = LocalDate.now().toEpochDay()
@@ -121,16 +130,37 @@ fun HomeScreen(
 
         item {
             Text("Edzéseid", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextMain)
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Chip("Mind", selGroup == "") { selGroup = "" }
+                Hu.templateGroups.forEach { g ->
+                    Chip(Hu.groupEmoji(g) + " " + g, selGroup == g) { selGroup = if (selGroup == g) "" else g }
+                }
+                Chip("Saját", selGroup == "Saját") { selGroup = if (selGroup == "Saját") "" else "Saját" }
+            }
         }
 
-        items(data.templates, key = { it.id }) { t ->
+        if (shown.isEmpty()) {
+            item {
+                Text("Ebben a csoportban még nincs edzés. Hozz létre egyet lent.", color = Muted, fontSize = 13.sp)
+            }
+        }
+
+        items(shown, key = { it.id }) { t ->
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(t.emoji, fontSize = 34.sp)
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(t.name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextMain)
                         val sets = t.items.sumOf { it.sets }
-                        Text("${t.items.size} gyakorlat · $sets szett", color = Muted, fontSize = 12.sp)
+                        Text(
+                            "${t.items.size} gyakorlat · $sets szett · ~${(sets * 5 + 1) / 2} perc",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
                     }
                 }
                 Spacer(Modifier.height(6.dp))

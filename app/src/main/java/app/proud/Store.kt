@@ -227,51 +227,63 @@ class Store(private val file: File) {
     }
 
     companion object {
-        fun defaultTemplates(): List<Template> = listOf(
+        const val SEED_VERSION = 2
+
+        private fun ti(id: String, sets: Int, reps: Int) = TemplateItem(id, sets, reps)
+
+        private fun tpl(key: String, group: String, quick: Boolean, items: List<TemplateItem>) =
             Template(
-                "d_push", "Push – mell, váll, tricepsz", "💪",
-                listOf(
-                    TemplateItem("Barbell_Bench_Press_-_Medium_Grip", 4, 8),
-                    TemplateItem("Incline_Dumbbell_Press", 3, 10),
-                    TemplateItem("Barbell_Shoulder_Press", 3, 8),
-                    TemplateItem("Side_Lateral_Raise", 3, 12),
-                    TemplateItem("Triceps_Pushdown", 3, 12),
-                    TemplateItem("Dips_-_Triceps_Version", 3, 10)
-                )
-            ),
-            Template(
-                "d_pull", "Pull – hát, bicepsz", "🦍",
-                listOf(
-                    TemplateItem("Barbell_Deadlift", 3, 5),
-                    TemplateItem("Pullups", 4, 8),
-                    TemplateItem("Bent_Over_Barbell_Row", 4, 8),
-                    TemplateItem("Wide-Grip_Lat_Pulldown", 3, 10),
-                    TemplateItem("Face_Pull", 3, 15),
-                    TemplateItem("Barbell_Curl", 3, 10)
-                )
-            ),
-            Template(
-                "d_legs", "Láb nap", "🦵",
-                listOf(
-                    TemplateItem("Barbell_Full_Squat", 4, 6),
-                    TemplateItem("Romanian_Deadlift", 3, 8),
-                    TemplateItem("Leg_Press", 3, 12),
-                    TemplateItem("Barbell_Lunge", 3, 10),
-                    TemplateItem("Barbell_Hip_Thrust", 3, 10),
-                    TemplateItem("Standing_Calf_Raises", 4, 12)
-                )
-            ),
-            Template(
-                "d_full", "Teljes test", "🔥",
-                listOf(
-                    TemplateItem("Barbell_Full_Squat", 3, 8),
-                    TemplateItem("Barbell_Bench_Press_-_Medium_Grip", 3, 8),
-                    TemplateItem("Bent_Over_Barbell_Row", 3, 8),
-                    TemplateItem("Barbell_Shoulder_Press", 3, 8),
-                    TemplateItem("Barbell_Curl", 2, 10),
-                    TemplateItem("Triceps_Pushdown", 2, 12)
-                )
+                id = "d_${key}_${if (quick) "quick" else "full"}",
+                name = "$group – ${if (quick) "Gyors edzés" else "Teljes edzés"}",
+                emoji = Hu.groupEmoji(group),
+                items = items,
+                group = group
             )
+
+        fun defaultTemplates(): List<Template> = listOf(
+            tpl("chest", "Mell", true, listOf(
+                ti("Barbell_Bench_Press_-_Medium_Grip", 3, 8), ti("Incline_Dumbbell_Press", 3, 10), ti("Pushups", 2, 15))),
+            tpl("chest", "Mell", false, listOf(
+                ti("Barbell_Bench_Press_-_Medium_Grip", 4, 8), ti("Incline_Dumbbell_Press", 3, 10),
+                ti("Dumbbell_Flyes", 3, 12), ti("Cable_Crossover", 3, 12),
+                ti("Dips_-_Chest_Version", 3, 10), ti("Pushups", 2, 15))),
+            tpl("back", "Hát", true, listOf(
+                ti("Pullups", 3, 8), ti("Bent_Over_Barbell_Row", 3, 8), ti("Wide-Grip_Lat_Pulldown", 3, 10))),
+            tpl("back", "Hát", false, listOf(
+                ti("Barbell_Deadlift", 3, 5), ti("Pullups", 4, 8), ti("Bent_Over_Barbell_Row", 4, 8),
+                ti("Seated_Cable_Rows", 3, 10), ti("Wide-Grip_Lat_Pulldown", 3, 10),
+                ti("Hyperextensions_Back_Extensions", 3, 12))),
+            tpl("legs", "Láb", true, listOf(
+                ti("Barbell_Full_Squat", 3, 8), ti("Romanian_Deadlift", 3, 8), ti("Standing_Calf_Raises", 3, 12))),
+            tpl("legs", "Láb", false, listOf(
+                ti("Barbell_Full_Squat", 4, 6), ti("Romanian_Deadlift", 3, 8), ti("Leg_Press", 3, 12),
+                ti("Barbell_Lunge", 3, 10), ti("Lying_Leg_Curls", 3, 12),
+                ti("Barbell_Hip_Thrust", 3, 10), ti("Standing_Calf_Raises", 4, 12))),
+            tpl("shoulders", "Váll", true, listOf(
+                ti("Barbell_Shoulder_Press", 3, 8), ti("Side_Lateral_Raise", 3, 12), ti("Face_Pull", 3, 15))),
+            tpl("shoulders", "Váll", false, listOf(
+                ti("Barbell_Shoulder_Press", 4, 8), ti("Dumbbell_Shoulder_Press", 3, 10),
+                ti("Side_Lateral_Raise", 4, 12), ti("Reverse_Flyes", 3, 15),
+                ti("Face_Pull", 3, 15), ti("Dumbbell_Shrug", 3, 12))),
+            tpl("arms", "Kar", true, listOf(
+                ti("Barbell_Curl", 3, 10), ti("Triceps_Pushdown", 3, 12), ti("Hammer_Curls", 2, 12))),
+            tpl("arms", "Kar", false, listOf(
+                ti("Barbell_Curl", 3, 10), ti("Close-Grip_Barbell_Bench_Press", 3, 8),
+                ti("Hammer_Curls", 3, 12), ti("EZ-Bar_Skullcrusher", 3, 10),
+                ti("Dumbbell_Bicep_Curl", 3, 12), ti("Cable_Rope_Overhead_Triceps_Extension", 3, 12),
+                ti("Triceps_Pushdown", 3, 12))),
+            tpl("core", "Core", true, listOf(
+                ti("Hanging_Leg_Raise", 3, 10), ti("Cable_Crunch", 3, 15), ti("Ab_Roller", 3, 10))),
+            tpl("core", "Core", false, listOf(
+                ti("Hanging_Leg_Raise", 3, 12), ti("Cable_Crunch", 3, 15), ti("Ab_Roller", 3, 10),
+                ti("Decline_Crunch", 3, 15), ti("Rope_Crunch", 3, 15))),
+            tpl("full", "Teljes test", true, listOf(
+                ti("Barbell_Full_Squat", 3, 8), ti("Barbell_Bench_Press_-_Medium_Grip", 3, 8),
+                ti("Bent_Over_Barbell_Row", 3, 8))),
+            tpl("full", "Teljes test", false, listOf(
+                ti("Barbell_Full_Squat", 3, 8), ti("Barbell_Bench_Press_-_Medium_Grip", 3, 8),
+                ti("Bent_Over_Barbell_Row", 3, 8), ti("Barbell_Shoulder_Press", 3, 8),
+                ti("Barbell_Curl", 2, 10), ti("Triceps_Pushdown", 2, 12)))
         )
 
         private fun encode(d: AppData): JSONObject {
@@ -282,6 +294,7 @@ class Store(private val file: File) {
                         put("id", t.id)
                         put("name", t.name)
                         put("emoji", t.emoji)
+                        put("group", t.group)
                         put("items", JSONArray().also { ia ->
                             t.items.forEach { i ->
                                 ia.put(JSONObject().apply {
@@ -320,6 +333,7 @@ class Store(private val file: File) {
                     })
                 }
             })
+            o.put("seed", SEED_VERSION)
             o.put("plans", JSONArray().also { arr ->
                 d.plans.forEach { p ->
                     arr.put(JSONObject().apply {
@@ -373,7 +387,7 @@ class Store(private val file: File) {
                     val ij = ia.getJSONObject(j)
                     items.add(TemplateItem(ij.getString("ex"), ij.optInt("sets", 3), ij.optInt("reps", 10)))
                 }
-                templates.add(Template(t.getString("id"), t.optString("name", "Edzés"), t.optString("emoji", "💪"), items))
+                templates.add(Template(t.getString("id"), t.optString("name", "Edzés"), t.optString("emoji", "💪"), items, t.optString("group", "")))
             }
 
             val sessions = ArrayList<Session>()
@@ -434,7 +448,13 @@ class Store(private val file: File) {
                 active = ActiveWorkout(ao.getLong("start"), ao.optString("name", "Edzés"), exs)
             }
 
-            return AppData(templates, sessions, plans, unlocked, settings, active)
+            var finalTemplates: List<Template> = templates
+            if (o.optInt("seed", 1) < SEED_VERSION) {
+                val oldIds = setOf("d_push", "d_pull", "d_legs", "d_full")
+                finalTemplates = defaultTemplates() + templates.filter { it.id !in oldIds }
+            }
+
+            return AppData(finalTemplates, sessions, plans, unlocked, settings, active)
         }
     }
 }
