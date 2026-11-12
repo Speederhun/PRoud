@@ -242,7 +242,7 @@ class Store(private val file: File) {
     }
 
     companion object {
-        const val SEED_VERSION = 2
+        const val SEED_VERSION = 3
 
         private fun ti(id: String, sets: Int, reps: Int) = TemplateItem(id, sets, reps)
 
@@ -256,6 +256,18 @@ class Store(private val file: File) {
             )
 
         fun defaultTemplates(): List<Template> = listOf(
+            tpl("push", "Push", true, listOf(
+                ti("Barbell_Bench_Press_-_Medium_Grip", 3, 8), ti("Barbell_Shoulder_Press", 3, 8),
+                ti("Triceps_Pushdown", 3, 12))),
+            tpl("push", "Push", false, listOf(
+                ti("Barbell_Bench_Press_-_Medium_Grip", 4, 8), ti("Incline_Dumbbell_Press", 3, 10),
+                ti("Barbell_Shoulder_Press", 3, 8), ti("Side_Lateral_Raise", 3, 12),
+                ti("Triceps_Pushdown", 3, 12), ti("Dips_-_Triceps_Version", 3, 10))),
+            tpl("pull", "Pull", true, listOf(
+                ti("Pullups", 3, 8), ti("Bent_Over_Barbell_Row", 3, 8), ti("Barbell_Curl", 3, 10))),
+            tpl("pull", "Pull", false, listOf(
+                ti("Barbell_Deadlift", 3, 5), ti("Pullups", 4, 8), ti("Bent_Over_Barbell_Row", 4, 8),
+                ti("Wide-Grip_Lat_Pulldown", 3, 10), ti("Face_Pull", 3, 15), ti("Barbell_Curl", 3, 10))),
             tpl("chest", "Mell", true, listOf(
                 ti("Barbell_Bench_Press_-_Medium_Grip", 3, 8), ti("Incline_Dumbbell_Press", 3, 10), ti("Pushups", 2, 15))),
             tpl("chest", "Mell", false, listOf(
@@ -465,8 +477,9 @@ class Store(private val file: File) {
 
             var finalTemplates: List<Template> = templates
             if (o.optInt("seed", 1) < SEED_VERSION) {
-                val oldIds = setOf("d_push", "d_pull", "d_legs", "d_full")
-                finalTemplates = defaultTemplates() + templates.filter { it.id !in oldIds }
+                val defaults = defaultTemplates()
+                val replaceIds = defaults.map { it.id }.toSet() + setOf("d_push", "d_pull", "d_legs", "d_full")
+                finalTemplates = defaults + templates.filter { it.id !in replaceIds }
             }
 
             return AppData(finalTemplates, sessions, plans, unlocked, settings, active)
